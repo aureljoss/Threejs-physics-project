@@ -13,15 +13,32 @@ const debugObject= {}
 debugObject.createSphere=()=>{
     createSphere(Math.random()*0.5,{x:(Math.random()-0.5)*3,y:3,z:(Math.random()-0.5)*3})
 }
-gui.add(debugObject, 'createSphere')
 
-debugObject.createBox=()=>{
-    createBox(Math.random()*0.5,
-    Math.random()*0.5,
-    Math.random()*0.5,
-    {x:(Math.random()-0.5)*3,y:3,z:(Math.random()-0.5)*3})
+debugObject.createBox = () =>
+    {
+        createBox(
+            Math.random(),
+            Math.random(),
+            Math.random(),
+            {
+                x: (Math.random() - 0.5) * 3,
+                y: 3,
+                z: (Math.random() - 0.5) * 3
+            }
+        )}
+
+debugObject.reset=()=>{
+    for (const object of objectsToUpdate){
+        object.body.removeEventListener('collide',playHitSound)
+        world.removeBody(object.body)
+        scene.remove(object.mesh)
+    }
+    objectsToUpdate.splice(0, objectsToUpdate.length)
 }
-gui.add(debugObject, 'createBox')
+        
+    gui.add(debugObject, 'createBox')
+    gui.add(debugObject, 'createSphere')
+    gui.add(debugObject, 'reset')
 
 /**
  * Base
@@ -31,6 +48,21 @@ const canvas = document.querySelector('canvas.webgl')
 
 // Scene
 const scene = new THREE.Scene()
+
+
+/**
+ * Sounds
+ */
+const hitSound= new Audio('/sounds/hit.mp3')
+const playHitSound=(collision)=>{
+    const impactStrength=collision.contact.getImpactVelocityAlongNormal()
+    if(impactStrength>1.5){
+    hitSound.volume=Math.random()
+    hitSound.currentTime=0
+    hitSound.play()
+    }
+}
+
 
 /**
  * Textures
@@ -53,6 +85,8 @@ const environmentMapTexture = cubeTextureLoader.load([
  */
 //World
 const world= new CANNON.World()
+world.broadphase=new CANNON.SAPBroadphase(world)
+world.allowSleep=true;
 world.gravity.set(0,-9.82, 0)
 
 //Material
@@ -189,6 +223,7 @@ const createSphere=(radius,position)=>{
         material: defaultMaterial
     })
     body.position.copy(position)
+    body.addEventListener('collide',playHitSound)
     world.addBody(body)
 
     //save in object to update
@@ -198,42 +233,41 @@ const createSphere=(radius,position)=>{
     })
 }
 
-const boxGeometry= new THREE.BoxGeometry(1,1,1)
-const boxMaterial= new THREE.MeshStandardMaterial({
+const boxGeometry = new THREE.BoxGeometry(1, 1, 1)
+const boxMaterial = new THREE.MeshStandardMaterial({
     metalness: 0.3,
-    roughness: 0.4, 
-    envMap:environmentMapTexture
+    roughness: 0.4,
+    envMap: environmentMapTexture,
+    envMapIntensity: 0.5
 })
-
-const createBox=(width, height, depth, position)=>{
-    //Three.js Mesh
-    const mesh=new THREE.Mesh(boxGeometry, boxMaterial)
+const createBox = (width, height, depth, position) =>
+{
+    // Three.js mesh
+    const mesh = new THREE.Mesh(boxGeometry, boxMaterial)
     mesh.scale.set(width, height, depth)
-    mesh.castShadow=true
+    mesh.castShadow = true
     mesh.position.copy(position)
     scene.add(mesh)
 
-    //Cannon.js body
-    const shape= new CANNON.Box(new CANNON.Vec3(width*0.5, height*0,5, depth*0.5))
-    const body= new CANNON.Body({
-        mass:1, 
-        position: new CANNON.Vec3(0,3,0),
-        shape, 
+    // Cannon.js body
+    const shape = new CANNON.Box(new CANNON.Vec3(width * 0.5, height * 0.5, depth * 0.5))
+
+    const body = new CANNON.Body({
+        mass: 1,
+        position: new CANNON.Vec3(0, 3, 0),
+        shape: shape,
         material: defaultMaterial
-    }   
-    )
+    })
     body.position.copy(position)
+    body.addEventListener('collide',playHitSound)
     world.addBody(body)
 
-        //save in object to update
-        objectsToUpdate.push({
-            mesh, 
-            body
-        })
+    // Save in objects
+    objectsToUpdate.push({ mesh, body })
 }
 
+
 createSphere(0.5, {x:0,y:3, z:0})
-createBox(1,1,1, {x:0,y:3, z:0})
 
 /**
  * Animate
@@ -251,10 +285,12 @@ const tick = () =>
     // sphereBody.applyForce(new CANNON.Vec3(-0.5,0,0), sphereBody.position)
     world.step(1/60, deltaTime, 3)
 
-    for(const object of objectsToUpdate){
-        object.mesh.position.copy(object.body.position)
-        object.mesh.quaternion.copy(object.body.quaternion)
-    }
+    for(const object of objectsToUpdate)
+        {
+            object.mesh.position.copy(object.body.position)
+            object.mesh.quaternion.copy(object.body.quaternion)
+        }
+    
 
     // sphere.position.copy(sphereBody.position)
 
