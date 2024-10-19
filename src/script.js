@@ -8,6 +8,11 @@ import CANNON from 'cannon'
  * Debug
  */
 const gui = new GUI()
+const debugObject= {}
+debugObject.createSphere=()=>{
+    createSphere(Math.random()*0.5,{x:(Math.random()-0.5)*3,y:3,z:(Math.random()-0.5)*3})
+}
+gui.add(debugObject, 'createSphere')
 
 /**
  * Base
@@ -170,6 +175,46 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap
 renderer.setSize(sizes.width, sizes.height)
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+
+/**
+ * Utils
+ */
+
+const objectsToUpdate=[]
+
+const createSphere=(radius,position)=>{
+    const mesh= new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 20,20), 
+        new THREE.MeshStandardMaterial({
+            metalness: 0.3,
+            roughness: 0.4, 
+            envMap:environmentMapTexture
+        })
+    )
+    mesh.castShadow=true
+    mesh.position.copy(position)
+    scene.add(mesh)
+
+    //Cannon.js body
+    const shape= new CANNON.Sphere(radius)
+    const body = new CANNON.Body({
+        mass:1, 
+        position: new CANNON.Vec3(0,3,0),
+        shape, 
+        material: defaultMaterial
+    })
+    body.position.copy(position)
+    world.addBody(body)
+
+    //save in object to update
+    objectsToUpdate.push({
+        mesh, 
+        body
+    })
+}
+
+createSphere(0.5, {x:0,y:3, z:0})
+
 /**
  * Animate
  */
@@ -185,6 +230,10 @@ const tick = () =>
     //Update physics world
     // sphereBody.applyForce(new CANNON.Vec3(-0.5,0,0), sphereBody.position)
     world.step(1/60, deltaTime, 3)
+
+    for(const object of objectsToUpdate){
+        object.mesh.position.copy(object.body.position)
+    }
 
     // sphere.position.copy(sphereBody.position)
 
